@@ -11,6 +11,7 @@
 #include "kvstore.h"
 #include "buffer.h"
 #include "resp.h"
+#include "kvstore.h"
 
 static int g_aof_enabled = 0;
 static int g_aof_fd = -1;
@@ -73,6 +74,7 @@ static int aof_append_resp_command(int argc, const char **argv)
         if (fsync(g_aof_fd) != 0)
             return -1;
         g_last_fsync_ms = now_ms();
+        // fprintf(stderr, "[AOF] fsync(always)\n");
     }
 
     return 0;
@@ -128,6 +130,7 @@ int kvs_aof_maybe_fsync(void)
         if (fsync(g_aof_fd) != 0)
             return -1;
         g_last_fsync_ms = now;
+        // fprintf(stderr, "[AOF] fsync(everysec)\n");
     }
     return 0;
 }

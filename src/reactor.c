@@ -11,6 +11,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <limits.h>
+#include <stdio.h>
+#include "kvs_aof.h"
 
 /* ----------------------------- 工具函数：non-blocking ----------------------------- */
 
@@ -520,7 +522,7 @@ int reactor_run(struct reactor *r)
 
     while (r->running)
     {
-        int n = epoll_wait(r->epfd, r->evlist, r->max_events, -1);
+        int n = epoll_wait(r->epfd, r->evlist, r->max_events, 100);
         if (n < 0)
         {
             if (errno == EINTR)
@@ -626,6 +628,12 @@ int reactor_run(struct reactor *r)
                     }
                 }
             }
+        }
+
+                /* 后台周期性处理 AOF everysec */
+        if (kvs_aof_maybe_fsync() != 0)
+        {
+            fprintf(stderr, "kvs_aof_maybe_fsync failed\n");
         }
     }
 

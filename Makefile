@@ -34,9 +34,6 @@ LIB_A    := $(BUILD_DIR)/libkvstore.a
 KVS_BIN := $(BIN_DIR)/kvstore_server
 KVS_OBJ := $(BUILD_DIR)/kvstore.o
 
-# ---- examples ----
-ECHO_BIN  := $(BIN_DIR)/echo_server
-ECHO_OBJ  := $(BUILD_DIR)/example/echo_server.o
 
 # ---- unit tests ----
 UNIT_SRCS := \
@@ -73,13 +70,6 @@ $(JEMALLOC_LIB):
 # ---------------- lib ----------------
 $(LIB_A): jemalloc $(BUILD_DIR) $(LIB_OBJS)
 	$(AR) rcs $@ $(LIB_OBJS)
-
-# ---------------- echo server ----------------
-$(ECHO_BIN): $(BIN_DIR) $(LIB_A) $(ECHO_OBJ)
-	$(CC) $(CFLAGS) $(ECHO_OBJ) $(LIB_A) -o $@ $(LDFLAGS)
-
-run-echo: $(ECHO_BIN)
-	./$(ECHO_BIN) 6381
 
 # ---------------- kvstore server ----------------
 $(KVS_BIN): $(BIN_DIR) $(LIB_A) $(KVS_OBJ)
