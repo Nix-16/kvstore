@@ -11,3 +11,7 @@ void kvs_set_allocator(kvs_alloc_type_t type);
 void *kvs_malloc(size_t size);
 
 void kvs_free(void *ptr);
+
+void *kvs_calloc(size_t nmemb, size_t size);
+
+void *kvs_realloc(void *ptr, size_t size);

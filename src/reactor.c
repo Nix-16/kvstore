@@ -1,5 +1,6 @@
 #include "reactor.h"
 
+#include "kvs_alloc.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -66,7 +67,7 @@ static int ensure_conns_cap(struct reactor *r, int fd)
     }
 
     struct connection **new_arr =
-        (struct connection **)realloc(r->conns, sizeof(struct connection *) * (size_t)new_cap);
+        (struct connection **)kvs_realloc(r->conns, sizeof(struct connection *) * (size_t)new_cap);
     if (!new_arr)
         return -1;
 
@@ -118,7 +119,7 @@ static int epoll_update(struct reactor *r, int fd, uint32_t new_events)
 
 static struct connection *connection_create(int fd)
 {
-    struct connection *c = (struct connection *)calloc(1, sizeof(struct connection));
+    struct connection *c = (struct connection *)kvs_calloc(1, sizeof(struct connection));
     if (!c)
         return NULL;
 
@@ -130,13 +131,13 @@ static struct connection *connection_create(int fd)
     /* 初始化 in/out buffer */
     if (buffer_init(&c->in, 0) != 0)
     {
-        free(c);
+        kvs_free(c);
         return NULL;
     }
     if (buffer_init(&c->out, 0) != 0)
     {
         buffer_free(&c->in);
-        free(c);
+        kvs_free(c);
         return NULL;
     }
 
@@ -150,7 +151,7 @@ static void connection_destroy(struct connection *c)
 
     buffer_free(&c->in);
     buffer_free(&c->out);
-    free(c);
+    kvs_free(c);
 }
 
 /* 关闭连接（epoll 删除 + close(fd) + 回调 + 释放） */
@@ -408,14 +409,14 @@ struct reactor *reactor_create(int max_events)
     if (max_events <= 0)
         max_events = 1024;
 
-    struct reactor *r = (struct reactor *)calloc(1, sizeof(struct reactor));
+    struct reactor *r = (struct reactor *)kvs_calloc(1, sizeof(struct reactor));
     if (!r)
         return NULL;
 
     r->epfd = epoll_create1(0);
     if (r->epfd < 0)
     {
-        free(r);
+        kvs_free(r);
         return NULL;
     }
 
@@ -423,7 +424,7 @@ struct reactor *reactor_create(int max_events)
     if (!r->evlist)
     {
         close(r->epfd);
-        free(r);
+        kvs_free(r);
         return NULL;
     }
 

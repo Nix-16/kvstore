@@ -1,5 +1,6 @@
 #include "buffer.h"
 
+#include "kvs_alloc.h"
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
