@@ -47,7 +47,7 @@ UNIT_BINS := $(patsubst test/unit/%.c,$(BIN_DIR)/%,$(UNIT_SRCS))
 
 .PHONY: all clean test run-echo run-kvs jemalloc
 
-all: jemalloc $(LIB_A) $(ECHO_BIN) $(KVS_BIN)
+all: jemalloc $(LIB_A) $(KVS_BIN)
 
 # ---------------- common dirs ----------------
 $(BUILD_DIR):
