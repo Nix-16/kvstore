@@ -115,9 +115,3 @@
 
 ---
 
-## 6. 文档与面试要点小结
-
-- **架构**：单机、单线程 Reactor、三套独立命名空间、可选 jemalloc。
-- **持久化**：AOF 为 RESP 命令日志；快照为自定义二进制（KVS1 + 长度前缀 key/value）；恢复顺序为「先快照再 AOF」。
-- **结构选型**：Array 简单线性；Hash 均摊 O(1)；RBTree 有序、可扩展范围查询。
-- **扩展方向**：INFO、优雅退出、主从同步、proactor/ntyco 等见 README。
