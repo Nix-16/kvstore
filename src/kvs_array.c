@@ -68,12 +68,33 @@ int kvs_array_set(kvs_array_t *inst, char *key, char *value)
     if (inst->table == NULL)
         return -2; // 未create/状态错误
 
-    if (kvs_array_get(inst, key) != NULL)
-        return 1; // exist
+    /* 1) 先查找是否已存在：存在则覆盖 value */
+    for (int i = 0; i < inst->total; i++)
+    {
+        if (inst->table[i].key == NULL)
+            continue;
 
+        if (strcmp(inst->table[i].key, key) == 0)
+        {
+            /* 覆盖写：先申请新 value，成功后替换，避免 malloc 失败导致旧值丢失 */
+            size_t vlen = strlen(value) + 1;
+            char *newv = kvs_malloc(vlen);
+            if (newv == NULL)
+                return -3;
+            memcpy(newv, value, vlen);
+
+            if (inst->table[i].value)
+                kvs_free(inst->table[i].value);
+
+            inst->table[i].value = newv;
+            return 0;
+        }
+    }
+
+    /* 2) 不存在：走新增逻辑（复用洞位或尾插） */
     int slot = -1;
 
-    // 1) 优先找洞位复用
+    /* 2.1 优先找洞位复用 */
     for (int i = 0; i < inst->total; i++)
     {
         if (inst->table[i].key == NULL)
@@ -83,7 +104,7 @@ int kvs_array_set(kvs_array_t *inst, char *key, char *value)
         }
     }
 
-    // 2) 无洞位则尾部追加
+    /* 2.2 无洞位则尾部追加 */
     if (slot == -1)
     {
         if (inst->total >= KVS_ARRAY_SIZE)
@@ -92,7 +113,7 @@ int kvs_array_set(kvs_array_t *inst, char *key, char *value)
         inst->total++; // 仅尾部追加时增长 total
     }
 
-    // 分配并拷贝 key/value
+    /* 3) 分配并拷贝 key/value */
     size_t klen = strlen(key) + 1;
     char *kcopy = kvs_malloc(klen);
     if (kcopy == NULL)
@@ -103,13 +124,14 @@ int kvs_array_set(kvs_array_t *inst, char *key, char *value)
     char *vcopy = kvs_malloc(vlen);
     if (vcopy == NULL)
     {
-        kvs_free(kcopy); // 避免泄漏
+        kvs_free(kcopy);
         return -3;
     }
     memcpy(vcopy, value, vlen);
 
     inst->table[slot].key = kcopy;
     inst->table[slot].value = vcopy;
+
     return 0;
 }
 

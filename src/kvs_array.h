@@ -41,14 +41,13 @@ int kvs_array_create(kvs_array_t *inst);
 int kvs_array_destory(kvs_array_t *inst);
 
 /*
- * kvs_array_set
+ * kvs_array_set  (upsert: 不存在则新增，存在则覆盖 value)
  * @return:
- *  0   success (新增成功)
- *  1   exist   (key已存在)
+ *  0   success (新增或覆盖都算成功)
  * -1   inst/key/value == NULL 参数错误
  * -2   inst->table == NULL 未create/状态错误
- * -3   内存分配失败
- * -4   空间不足（无可用洞位且容量已满）
+ * -3   内存分配失败（节点/字符串分配失败）
+ * -4   空间不足（无可用洞位且容量已满）【仅在新增时可能出现】
  */
 int kvs_array_set(kvs_array_t *inst, char *key, char *value);
 
