@@ -1,7 +1,15 @@
 CC      := gcc
 AR      := ar
-CFLAGS  := -Wall -Wextra -O2 -g -Isrc
-LDFLAGS := -lpthread
+
+# ---------------- jemalloc (git submodule) ----------------
+JEMALLOC_DIR := third_party/jemalloc
+JEMALLOC_INC := -I$(JEMALLOC_DIR)/include
+JEMALLOC_LIB := $(JEMALLOC_DIR)/lib/libjemalloc.a
+
+# ---------------- flags ----------------
+CFLAGS  := -Wall -Wextra -O2 -g -Isrc $(JEMALLOC_INC)
+# jemalloc 静态库通常还需要 -ldl；你原来有 -lpthread
+LDFLAGS := -lpthread -ldl $(JEMALLOC_LIB)
 
 BUILD_DIR := build
 BIN_DIR   := bin
@@ -38,10 +46,11 @@ UNIT_SRCS := \
 
 UNIT_BINS := $(patsubst test/unit/%.c,$(BIN_DIR)/%,$(UNIT_SRCS))
 
-.PHONY: all clean test run-echo run-kvs
+.PHONY: all clean test run-echo run-kvs jemalloc
 
-all: $(LIB_A) $(ECHO_BIN) $(KVS_BIN)
+all: jemalloc $(LIB_A) $(ECHO_BIN) $(KVS_BIN)
 
+# ---------------- common dirs ----------------
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
@@ -52,24 +61,33 @@ $(BUILD_DIR)/%.o: %.c
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(LIB_A): $(BUILD_DIR) $(LIB_OBJS)
+# ---------------- jemalloc build ----------------
+jemalloc: $(JEMALLOC_LIB)
+
+$(JEMALLOC_LIB):
+	cd $(JEMALLOC_DIR) && ./autogen.sh
+	cd $(JEMALLOC_DIR) && ./configure --disable-cxx --enable-static --disable-shared
+	$(MAKE) -C $(JEMALLOC_DIR) -j
+
+# ---------------- lib ----------------
+$(LIB_A): jemalloc $(BUILD_DIR) $(LIB_OBJS)
 	$(AR) rcs $@ $(LIB_OBJS)
 
-# echo server
+# ---------------- echo server ----------------
 $(ECHO_BIN): $(BIN_DIR) $(LIB_A) $(ECHO_OBJ)
 	$(CC) $(CFLAGS) $(ECHO_OBJ) $(LIB_A) -o $@ $(LDFLAGS)
 
 run-echo: $(ECHO_BIN)
 	./$(ECHO_BIN) 6381
 
-# kvstore server
+# ---------------- kvstore server ----------------
 $(KVS_BIN): $(BIN_DIR) $(LIB_A) $(KVS_OBJ)
 	$(CC) $(CFLAGS) $(KVS_OBJ) $(LIB_A) -o $@ $(LDFLAGS)
 
 run-kvs: $(KVS_BIN)
 	./$(KVS_BIN) 6380
 
-# unit tests
+# ---------------- unit tests ----------------
 $(BIN_DIR)/test_%: $(LIB_A) $(BUILD_DIR)/test/unit/test_%.o | $(BIN_DIR)
 	$(CC) $(CFLAGS) $< $(BUILD_DIR)/test/unit/test_$*.o -o $@ $(LDFLAGS)
 
