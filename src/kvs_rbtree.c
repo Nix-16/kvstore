@@ -1,5 +1,9 @@
 #include "kvs_rbtree.h"
 
+/*
+ * global instance
+ */
+kvs_rbtree_t global_rbtree = {0};
 
 static int kvs_key_cmp(const char *a, const char *b)
 {

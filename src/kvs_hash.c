@@ -1,5 +1,9 @@
 #include "kvs_hash.h"
 
+/*
+ * global instance
+ */
+kvs_hash_t global_hash = {0};
 
 /* djb2：简单、稳定、分布比“字符求和”好很多 */
 static unsigned int kvs_hash_str(const char *s)

@@ -7,40 +7,35 @@
 #include <signal.h>
 
 #include "src/kvs_array.h"
+#include "src/kvs_hash.h"
+#include "src/kvs_rbtree.h"
 #include "src/resp.h"
 #include "src/resp_reply.h"
 #include "src/reactor.h"
 #include "src/buffer.h"
 
-/* 当前仅启用数组后端 */
-static kvs_options_t g_opt = { KVS_BACKEND_ARRAY };
-
 /* 你在 kvs_array.c 里定义的全局实例 */
-extern kvs_array_t global_array;
+extern kvs_array_t  global_array;
+extern kvs_hash_t   global_hash;
+extern kvs_rbtree_t global_rbtree;
 
-int kvs_init(const kvs_options_t *opt)
+int kvs_init()
 {
-    if (opt) {
-        g_opt = *opt;
-    } else {
-        g_opt.backend = KVS_BACKEND_ARRAY;
-    }
+    if (kvs_array_create(&global_array) != 0) return -1;
+    if (kvs_hash_create(&global_hash) != 0)   return -1;
+    if (kvs_rbtree_create(&global_rbtree) != 0) return -1;
 
-    /* 先只支持数组 */
-    if (g_opt.backend != KVS_BACKEND_ARRAY) {
-        /* 以后再扩展 */
-        g_opt.backend = KVS_BACKEND_ARRAY;
-    }
-
-    return kvs_array_create(&global_array);
+    return 0;
 }
 
 void kvs_fini(void)
 {
     kvs_array_destory(&global_array);
+    kvs_hash_destory(&global_hash);
+    kvs_rbtree_destory(&global_rbtree);
 }
 
-/* -------- 统一 KV API（先走数组） -------- */
+/* -------- Array KV API （独立空间） -------- */
 
 int kvs_set(const char *key, const char *value)
 {
@@ -64,6 +59,56 @@ int kvs_exists(const char *key)
 {
     if (!key) return -1;
     return kvs_array_exist(&global_array, (char*)key);
+}
+
+/* -------- Hash KV API（独立空间） -------- */
+static int kvs_hset(const char *key, const char *value)
+{
+    if (!key || !value) return -1;
+    return kvs_hash_set(&global_hash, (char*)key, (char*)value);
+}
+
+static char* kvs_hget(const char *key)
+{
+    if (!key) return NULL;
+    return kvs_hash_get(&global_hash, (char*)key);
+}
+
+static int kvs_hdel(const char *key)
+{
+    if (!key) return -1;
+    return kvs_hash_del(&global_hash, (char*)key);
+}
+
+static int kvs_hexists(const char *key)
+{
+    if (!key) return -1;
+    return kvs_hash_exist(&global_hash, (char*)key);
+}
+
+/* -------- RBTree KV API（独立空间） -------- */
+static int kvs_rset(const char *key, const char *value)
+{
+    if (!key || !value) return -1;
+    return kvs_rbtree_set(&global_rbtree, (char*)key, (char*)value);
+}
+
+static char* kvs_rget(const char *key)
+{
+    if (!key) return NULL;
+    return kvs_rbtree_get(&global_rbtree, (char*)key);
+}
+
+static int kvs_rdel(const char *key)
+{
+    if (!key) return -1;
+    return kvs_rbtree_del(&global_rbtree, (char*)key);
+}
+
+static int kvs_rexists(const char *key)
+{
+    if (!key) return -1;
+    return kvs_rbtree_exist(&global_rbtree, (char*)key);
 }
 
 /* -------- RESP 命令执行 -------- */
@@ -129,14 +174,88 @@ static int handle_cmd(struct connection *c, const struct resp_cmd *cmd)
         return resp_reply_integer(&c->out, (rc == 0) ? 1 : 0);
     }
 
+        /* ---------------- Hash namespace: HSET/HGET/HDEL/HEXISTS ---------------- */
+
+    if (strcasecmp(op, "HSET") == 0) {
+        if (cmd->argc != 3) {
+            return resp_reply_error(&c->out, "wrong number of arguments for 'hset'");
+        }
+        int rc = kvs_hset(cmd->argv[1], cmd->argv[2]);
+        if (rc < 0) return resp_reply_error(&c->out, "hset failed");
+        return resp_reply_simple(&c->out, "OK");
+    }
+
+    if (strcasecmp(op, "HGET") == 0) {
+        if (cmd->argc != 2) {
+            return resp_reply_error(&c->out, "wrong number of arguments for 'hget'");
+        }
+        char *v = kvs_hget(cmd->argv[1]);
+        if (!v) return resp_reply_nil(&c->out);
+        return resp_reply_bulk(&c->out, v, strlen(v));
+    }
+
+    if (strcasecmp(op, "HDEL") == 0) {
+        if (cmd->argc != 2) {
+            return resp_reply_error(&c->out, "wrong number of arguments for 'hdel'");
+        }
+        int rc = kvs_hdel(cmd->argv[1]);
+        if (rc < 0) return resp_reply_error(&c->out, "hdel failed");
+        return resp_reply_integer(&c->out, (rc == 0) ? 1 : 0);
+    }
+
+    if (strcasecmp(op, "HEXISTS") == 0) {
+        if (cmd->argc != 2) {
+            return resp_reply_error(&c->out, "wrong number of arguments for 'hexists'");
+        }
+        int rc = kvs_hexists(cmd->argv[1]);
+        if (rc < 0) return resp_reply_error(&c->out, "hexists failed");
+        return resp_reply_integer(&c->out, (rc == 0) ? 1 : 0);
+    }
+
+    /* ---------------- RBTree namespace: RSET/RGET/RDEL/REXISTS ---------------- */
+
+    if (strcasecmp(op, "RSET") == 0) {
+        if (cmd->argc != 3) {
+            return resp_reply_error(&c->out, "wrong number of arguments for 'rset'");
+        }
+        int rc = kvs_rset(cmd->argv[1], cmd->argv[2]);
+        if (rc < 0) return resp_reply_error(&c->out, "rset failed");
+        return resp_reply_simple(&c->out, "OK");
+    }
+
+    if (strcasecmp(op, "RGET") == 0) {
+        if (cmd->argc != 2) {
+            return resp_reply_error(&c->out, "wrong number of arguments for 'rget'");
+        }
+        char *v = kvs_rget(cmd->argv[1]);
+        if (!v) return resp_reply_nil(&c->out);
+        return resp_reply_bulk(&c->out, v, strlen(v));
+    }
+
+    if (strcasecmp(op, "RDEL") == 0) {
+        if (cmd->argc != 2) {
+            return resp_reply_error(&c->out, "wrong number of arguments for 'rdel'");
+        }
+        int rc = kvs_rdel(cmd->argv[1]);
+        if (rc < 0) return resp_reply_error(&c->out, "rdel failed");
+        return resp_reply_integer(&c->out, (rc == 0) ? 1 : 0);
+    }
+
+    if (strcasecmp(op, "REXISTS") == 0) {
+        if (cmd->argc != 2) {
+            return resp_reply_error(&c->out, "wrong number of arguments for 'rexists'");
+        }
+        int rc = kvs_rexists(cmd->argv[1]);
+        if (rc < 0) return resp_reply_error(&c->out, "rexists failed");
+        return resp_reply_integer(&c->out, (rc == 0) ? 1 : 0);
+    }
+
     return resp_reply_error(&c->out, "unknown command");
 }
 
-/* -------- reactor 回调：增量解析 + 执行 + flush out -------- */
-
 int kvs_on_message(struct connection *c, void *user_data)
 {
-    struct reactor *r = (struct reactor *)user_data;
+    (void)user_data; 
 
     for (;;) {
         struct resp_cmd cmd;
@@ -144,35 +263,17 @@ int kvs_on_message(struct connection *c, void *user_data)
 
         int prc = resp_try_parse(&c->in, &cmd);
         if (prc == 0) {
-            /* 半包：等待下次 EPOLLIN */
-            return 0;
+            return 0;     /* 半包 */
         }
         if (prc < 0) {
-            /* 协议错：断开 */
-            return -1;
+            return -1;    /* 协议错误，reactor 会 close */
         }
 
-        /* 执行业务并把 RESP 写入 c->out */
         if (handle_cmd(c, &cmd) != 0) {
             resp_cmd_free(&cmd);
             return -1;
         }
         resp_cmd_free(&cmd);
-
-        /* 关键：把 out buffer 真正发出去（按 echo_server 的模式） */
-        size_t out_n = buffer_readable_bytes(&c->out);
-        if (out_n > 0) {
-            const char *out_p = buffer_peek(&c->out);
-
-            if (connection_send(r, c, out_p, out_n) != 0) {
-                return -1;
-            }
-
-            /* 清空 out */
-            buffer_retrieve(&c->out, out_n);
-        }
-
-        /* 继续循环解析下一条（如果 in buffer 里还有数据） */
     }
 }
 
@@ -198,7 +299,7 @@ int main(int argc, char **argv)
     /* 默认 6380，避免占用 6379（你 echo_server/系统 redis 可能会用） */
     uint16_t port = (argc >= 2) ? (uint16_t)atoi(argv[1]) : 6380;
 
-    if (kvs_init(NULL) != 0) {
+    if (kvs_init() != 0) {
         fprintf(stderr, "kvs_init failed\n");
         return 1;
     }
