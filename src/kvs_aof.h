@@ -20,4 +20,6 @@ int kvs_aof_append_rdel(const char *key);
 
 int kvs_aof_maybe_fsync(void);
 
+int kvs_aof_reset(void);
+
 #endif /* KVS_AOF_H */

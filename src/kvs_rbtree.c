@@ -361,8 +361,6 @@ static void rbtree_free_node(kvs_rbtree_node_t *n)
  * 对外接口
  * ============================ */
 
-kvs_rbtree_t global_rbtree;
-
 int kvs_rbtree_create(kvs_rbtree_t *inst)
 {
     if (!inst)
@@ -525,6 +523,41 @@ int kvs_rbtree_exist(kvs_rbtree_t *inst, char *key)
 int kvs_rbtree_count(kvs_rbtree_t *inst)
 {
     if (!inst)
-        return 0;
+        return -1;
+    if (!inst->nil)
+        return -2;
     return inst->count;
+}
+
+static int rbtree_foreach_node(kvs_rbtree_t *inst,
+                               kvs_rbtree_node_t *node,
+                               kvs_rbtree_visit_fn fn,
+                               void *arg)
+{
+    if (node == inst->nil)
+        return 0;
+
+    int rc = rbtree_foreach_node(inst, node->left, fn, arg);
+    if (rc < 0)
+        return rc;
+
+    rc = fn(node->key, node->value, arg);
+    if (rc < 0)
+        return rc;
+
+    rc = rbtree_foreach_node(inst, node->right, fn, arg);
+    if (rc < 0)
+        return rc;
+
+    return 0;
+}
+
+int kvs_rbtree_foreach(kvs_rbtree_t *inst, kvs_rbtree_visit_fn fn, void *arg)
+{
+    if (!inst || !fn)
+        return -1;
+    if (!inst->nil)
+        return -2;
+
+    return rbtree_foreach_node(inst, inst->root, fn, arg);
 }

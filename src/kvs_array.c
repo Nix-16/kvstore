@@ -191,3 +191,38 @@ int kvs_array_exist(kvs_array_t *inst, char *key)
 
     return (kvs_array_get(inst, key) != NULL) ? 0 : 1;
 }
+
+int kvs_array_foreach(kvs_array_t *inst, kvs_array_visit_fn fn, void *arg)
+{
+    if (inst == NULL || fn == NULL)
+        return -1;
+    if (inst->table == NULL)
+        return -2;
+
+    for (int i = 0; i < inst->total; i++)
+    {
+        if (inst->table[i].key == NULL)
+            continue;
+
+        int rc = fn(inst->table[i].key, inst->table[i].value, arg);
+        if (rc < 0)
+            return rc;
+    }
+    return 0;
+}
+
+int kvs_array_count(kvs_array_t *inst)
+{
+    if (inst == NULL)
+        return -1;
+    if (inst->table == NULL)
+        return -2;
+
+    int cnt = 0;
+    for (int i = 0; i < inst->total; i++)
+    {
+        if (inst->table[i].key != NULL)
+            cnt++;
+    }
+    return cnt;
+}

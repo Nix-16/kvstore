@@ -289,3 +289,50 @@ int kvs_aof_load(void)
     buffer_free(&in);
     return 0;
 }
+
+int kvs_aof_reset(void)
+{
+    int fd;
+
+    if (!g_aof_enabled)
+        return 0;
+
+    if (g_loading_aof)
+        return -1;
+
+    /* 先关闭当前 AOF fd，确保旧内容已落盘 */
+    if (g_aof_fd >= 0) {
+        if (g_aof_policy != KVS_AOF_FSYNC_NO) {
+            if (fsync(g_aof_fd) != 0) {
+                close(g_aof_fd);
+                g_aof_fd = -1;
+                return -1;
+            }
+        }
+        close(g_aof_fd);
+        g_aof_fd = -1;
+    }
+
+    /* 用截断方式重新创建空文件 */
+    fd = open(g_aof_filename, O_CREAT | O_TRUNC | O_WRONLY, 0644);
+    if (fd < 0)
+        return -1;
+
+    /* 立即刷一次，确保“空 AOF 基线”落盘 */
+    if (g_aof_policy != KVS_AOF_FSYNC_NO) {
+        if (fsync(fd) != 0) {
+            close(fd);
+            return -1;
+        }
+    }
+
+    close(fd);
+
+    /* 再次以 append 模式重新打开，恢复正常追加状态 */
+    g_aof_fd = open(g_aof_filename, O_CREAT | O_APPEND | O_WRONLY, 0644);
+    if (g_aof_fd < 0)
+        return -1;
+
+    g_last_fsync_ms = now_ms();
+    return 0;
+}

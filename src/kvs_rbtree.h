@@ -94,3 +94,8 @@ int kvs_rbtree_exist(kvs_rbtree_t *inst, char *key);
  *  >=0 节点数量；inst==NULL 返回 0
  */
 int kvs_rbtree_count(kvs_rbtree_t *inst);
+
+typedef int (*kvs_rbtree_visit_fn)(const char *key, const char *value, void *arg);
+
+int kvs_rbtree_foreach(kvs_rbtree_t *inst, kvs_rbtree_visit_fn fn, void *arg);
+int kvs_rbtree_count(kvs_rbtree_t *inst);

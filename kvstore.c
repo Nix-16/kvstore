@@ -15,11 +15,13 @@
 #include "src/buffer.h"
 #include "src/kvs_config.h"
 #include "src/kvs_aof.h"
+#include "src/kvs_snapshot.h"
 
-/* 你在 kvs_array.c 里定义的全局实例 */
+/* 全局实例 */
 extern kvs_array_t global_array;
 extern kvs_hash_t global_hash;
 extern kvs_rbtree_t global_rbtree;
+extern kvs_config_t global_config;
 
 int kvs_init()
 {
@@ -138,6 +140,29 @@ int handle_cmd(struct connection *c, const struct resp_cmd *cmd)
     }
 
     const char *op = cmd->argv[0];
+
+    /* Save */
+    if (strcasecmp(op, "SAVE") == 0)
+    {
+        if (cmd->argc != 1)
+        {
+            return resp_reply_error(&c->out, "wrong number of arguments for 'save'");
+        }
+
+        int rc = kvs_snapshot_save();
+        if (rc != 0)
+        {
+            return resp_reply_error(&c->out, "snapshot save failed");
+        }
+
+        rc = kvs_aof_reset();
+        if (rc != 0)
+        {
+            return resp_reply_error(&c->out, "snapshot ok but aof reset failed");
+        }
+
+        return resp_reply_simple(&c->out, "OK");
+    }
 
     /* PING [msg] */
     if (strcasecmp(op, "PING") == 0)
@@ -411,19 +436,16 @@ static void on_close(struct connection *c, void *user_data)
 
 int main()
 {
-    // /* 默认 6380，避免占用 6379（你 echo_server/系统 redis 可能会用） */
-    // uint16_t port = (argc >= 2) ? (uint16_t)atoi(argv[1]) : 6380;
-
-    kvs_config_t cfg;
-    if (kvs_config_load_file(&cfg, "kvs.conf") != 0)
+    /* 读取配置到全局配置对象 */
+    if (kvs_config_load_file(&global_config, "kvs.conf") != 0)
     {
         fprintf(stderr, "load config failed\n");
         return 1;
     }
 
-    uint16_t port = (uint16_t)cfg.port;
+    uint16_t port = (uint16_t)global_config.port;
 
-    kvs_set_allocator(cfg.allocator);
+    kvs_set_allocator(global_config.allocator);
 
     if (kvs_init() != 0)
     {
@@ -431,13 +453,28 @@ int main()
         return 1;
     }
 
-    if (kvs_aof_init(cfg.appendfilename, cfg.appendonly, cfg.appendfsync) != 0)
+    /* 先加载全量快照 */
+    {
+        int rc = kvs_snapshot_load();
+        if (rc < 0)
+        {
+            fprintf(stderr, "kvs_snapshot_load failed, rc=%d\n", rc);
+            kvs_fini();
+            return 1;
+        }
+    }
+
+    /* 再初始化 AOF */
+    if (kvs_aof_init(global_config.appendfilename,
+                     global_config.appendonly,
+                     global_config.appendfsync) != 0)
     {
         fprintf(stderr, "kvs_aof_init failed\n");
         kvs_fini();
         return 1;
     }
 
+    /* 最后回放 AOF 增量 */
     if (kvs_aof_load() != 0)
     {
         fprintf(stderr, "kvs_aof_load failed\n");
@@ -450,18 +487,19 @@ int main()
     if (!g_r)
     {
         fprintf(stderr, "reactor_create failed\n");
+        kvs_aof_close();
         kvs_fini();
         return 1;
     }
 
-    /* 把 reactor 指针作为 user_data 传给回调（kvs_on_message 里要用 connection_send） */
     reactor_set_callbacks(g_r, kvs_on_message, on_close, g_r);
 
-    if (reactor_listen(g_r, cfg.bind_ip, port, 128) != 0)
+    if (reactor_listen(g_r, global_config.bind_ip, port, 128) != 0)
     {
         fprintf(stderr, "reactor_listen failed on port %u\n", port);
         reactor_destroy(g_r);
         g_r = NULL;
+        kvs_aof_close();
         kvs_fini();
         return 1;
     }
@@ -469,7 +507,7 @@ int main()
     signal(SIGINT, on_sig);
     signal(SIGTERM, on_sig);
 
-    printf("kvstore_server listening on %s:%u\n", cfg.bind_ip, port);
+    printf("kvstore_server listening on %s:%u\n", global_config.bind_ip, port);
     fflush(stdout);
 
     reactor_run(g_r);

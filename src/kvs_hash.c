@@ -235,3 +235,35 @@ int kvs_hash_exist(kvs_hash_t *inst, char *key)
 
     return (kvs_hash_get(inst, key) != NULL) ? 0 : 1;
 }
+
+int kvs_hash_foreach(kvs_hash_t *inst, kvs_hash_visit_fn fn, void *arg)
+{
+    if (!inst || !fn)
+        return -1;
+    if (!inst->buckets)
+        return -2;
+
+    for (int i = 0; i < inst->max_slots; i++)
+    {
+        kvs_hash_node_t *cur = inst->buckets[i];
+        while (cur)
+        {
+            int rc = fn(cur->key, cur->value, arg);
+            if (rc < 0)
+                return rc;
+            cur = cur->next;
+        }
+    }
+
+    return 0;
+}
+
+int kvs_hash_count(kvs_hash_t *inst)
+{
+    if (!inst)
+        return -1;
+    if (!inst->buckets)
+        return -2;
+
+    return inst->count;
+}

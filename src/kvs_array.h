@@ -78,3 +78,8 @@ int kvs_array_del(kvs_array_t *inst, char *key);
  * -2   inst->table == NULL 未create/状态错误
  */
 int kvs_array_exist(kvs_array_t *inst, char *key);
+
+typedef int (*kvs_array_visit_fn)(const char *key, const char *value, void *arg);
+
+int kvs_array_foreach(kvs_array_t *inst, kvs_array_visit_fn fn, void *arg);
+int kvs_array_count(kvs_array_t *inst);

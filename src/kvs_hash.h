@@ -79,3 +79,28 @@ int kvs_hash_del(kvs_hash_t *inst, char *key);
  * -2   inst->buckets == NULL 未create/状态错误
  */
 int kvs_hash_exist(kvs_hash_t *inst, char *key);
+
+typedef int (*kvs_hash_visit_fn)(const char *key, const char *value, void *arg);
+
+/*
+ * kvs_hash_foreach
+ * 遍历当前所有有效 key/value
+ *
+ * @return:
+ *  0   success
+ * -1   inst/fn == NULL 参数错误
+ * -2   inst->buckets == NULL 未create/状态错误
+ * <0   回调返回负值时直接中断并透传
+ */
+int kvs_hash_foreach(kvs_hash_t *inst, kvs_hash_visit_fn fn, void *arg);
+
+/*
+ * kvs_hash_count
+ * 返回当前有效 key 数
+ *
+ * @return:
+ * >=0  当前键数
+ * -1   inst == NULL 参数错误
+ * -2   inst->buckets == NULL 未create/状态错误
+ */
+int kvs_hash_count(kvs_hash_t *inst);

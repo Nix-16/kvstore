@@ -25,7 +25,8 @@ LIB_SRCS := \
   src/kvs_hash.c \
   src/kvs_rbtree.c \
   src/kvs_config.c \
-  src/kvs_aof.c
+  src/kvs_aof.c	\
+  src/kvs_snapshot.c
 
 LIB_OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(LIB_SRCS))
 LIB_A    := $(BUILD_DIR)/libkvstore.a
@@ -92,3 +93,4 @@ test: $(UNIT_BINS)
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR)
 	rm -rf appendonly.aof
+	rm -rf dump.kvs

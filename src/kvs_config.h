@@ -29,9 +29,13 @@ typedef struct
     kvs_alloc_type_t allocator;
     kvs_net_type_t network;
 
-   int appendonly;
+    int appendonly;
     char appendfilename[256];
     kvs_aof_fsync_type_t appendfsync;
+
+    /* snapshot 全量持久化 */
+    int snapshot_enabled;
+    char snapshot_file[256];
 
 } kvs_config_t;
 
