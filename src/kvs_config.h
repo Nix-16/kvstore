@@ -14,6 +14,13 @@ typedef enum
     KVS_NET_NTYCO
 } kvs_net_type_t;
 
+typedef enum
+{
+    KVS_AOF_FSYNC_NO = 0,
+    KVS_AOF_FSYNC_ALWAYS,
+    KVS_AOF_FSYNC_EVERYSEC
+} kvs_aof_fsync_type_t;
+
 typedef struct
 {
     char bind_ip[64];
@@ -21,6 +28,10 @@ typedef struct
 
     kvs_alloc_type_t allocator;
     kvs_net_type_t network;
+
+   int appendonly;
+    char appendfilename[256];
+    kvs_aof_fsync_type_t appendfsync;
 
 } kvs_config_t;
 

@@ -7,7 +7,7 @@ JEMALLOC_INC := -I$(JEMALLOC_DIR)/include
 JEMALLOC_LIB := $(JEMALLOC_DIR)/lib/libjemalloc.a
 
 # ---------------- flags ----------------
-CFLAGS  := -Wall -Wextra -O2 -g -Isrc $(JEMALLOC_INC)
+CFLAGS  := -Wall -Wextra -O2 -g -I. -Isrc $(JEMALLOC_INC)
 # jemalloc 静态库通常还需要 -ldl；你原来有 -lpthread
 LDFLAGS := -lpthread -ldl $(JEMALLOC_LIB)
 
@@ -24,7 +24,8 @@ LIB_SRCS := \
   src/kvs_array.c \
   src/kvs_hash.c \
   src/kvs_rbtree.c \
-  src/kvs_config.c
+  src/kvs_config.c \
+  src/kvs_aof.c
 
 LIB_OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(LIB_SRCS))
 LIB_A    := $(BUILD_DIR)/libkvstore.a
@@ -100,3 +101,4 @@ test: $(UNIT_BINS)
 
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR)
+	rm -rf appendonly.aof
