@@ -104,8 +104,9 @@ int kvs_aof_init(const char *filename, int enabled, kvs_aof_fsync_type_t policy)
 void kvs_aof_close(void)
 {
     if (g_aof_fd >= 0) {
-        if (g_aof_policy != KVS_AOF_FSYNC_NO) {
-            fsync(g_aof_fd);
+        /* 优雅退出：无论日常策略如何，关闭前强制 fsync，避免丢数据 */
+        if (fsync(g_aof_fd) != 0) {
+            /* 仅记录，仍继续 close 避免泄漏 fd */
         }
         close(g_aof_fd);
         g_aof_fd = -1;

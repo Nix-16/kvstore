@@ -512,9 +512,22 @@ int main()
 
     reactor_run(g_r);
 
+    /* -------- 优雅退出：先落盘再收尾 -------- */
+    if (global_config.snapshot_enabled && global_config.snapshot_file[0] != '\0')
+    {
+        int rc = kvs_snapshot_save();
+        if (rc == 0)
+        {
+            if (kvs_aof_reset() != 0)
+                fprintf(stderr, "graceful shutdown: snapshot ok, aof reset failed\n");
+        }
+        else
+            fprintf(stderr, "graceful shutdown: snapshot save failed (rc=%d), aof will be fsync'd\n", rc);
+    }
+
     reactor_destroy(g_r);
     g_r = NULL;
-    kvs_aof_close();
+    kvs_aof_close(); /* 内部会 fsync 再 close，保证 AOF 不丢 */
     kvs_fini();
     return 0;
 }

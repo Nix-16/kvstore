@@ -9,6 +9,8 @@
 - **可选 jemalloc**：通过配置选择系统分配器或 jemalloc
 - **Reactor 网络模型**：当前仅实现 reactor；proactor / ntyco 已在配置中预留，待后续实现
 
+详细架构与持久化设计见 **[docs/design.md](docs/design.md)**。
+
 ## 依赖与编译
 
 - 需要 **gcc**、**make**
@@ -63,6 +65,7 @@ make run-kvs
 - **AOF**：写命令（SET/DEL、HSET/HDEL、RSET/RDEL）在非加载阶段会追加到 AOF；`appendfsync` 控制刷盘策略
 - **快照**：`SAVE` 将当前内存数据写入 `snapshot_file`，并调用 `kvs_aof_reset()` 清空/重置 AOF，便于下次启动以快照为主
 - **启动顺序**：先 `kvs_snapshot_load()`，再 `kvs_aof_load()` 回放 AOF
+- **优雅退出**：收到 SIGINT/SIGTERM 后停止接受新请求，若启用快照则执行一次 SAVE（快照 + 重置 AOF），关闭前对 AOF 做一次 fsync 再退出，避免丢数据
 
 ## 测试
 
@@ -88,6 +91,7 @@ make clean   # 删除 build/、bin/、appendonly.aof、dump.kvs
 
 - `kvstore.c` / `kvstore.h`：服务入口、命令分发、main
 - `src/`：reactor、RESP 解析与回复、buffer；kvs_array / kvs_hash / kvs_rbtree；kvs_config、kvs_aof、kvs_snapshot、kvs_alloc
+- `docs/design.md`：**设计文档**（架构、持久化格式、恢复顺序、三种结构选型与复杂度）
 - `test/unit/`：单元测试；`test/intergration/`：Python 压测脚本
 - `kvs.conf`：默认配置文件
 
@@ -95,3 +99,44 @@ make clean   # 删除 build/、bin/、appendonly.aof、dump.kvs
 
 - **网络模型**：配置中的 `proactor`、`ntyco` 已解析，但服务端目前仅使用 **reactor**，其余两种待后续实现。
 - 无集群、主从、ACL、多 DB 等能力，定位为单机内存 KV + 持久化。
+
+---
+
+## 求职项目扩展建议
+
+以下扩展项按**优先级**排列，做完前几项即可在简历/面试中把「设计取舍、持久化、可观测性、工程化」讲清楚；有余力再做深度扩展。
+
+### 高优先级（简历亮点 + 面试必问）
+
+| 扩展项 | 说明 | 面试可讲点 |
+|--------|------|------------|
+| **设计文档** | 新增 `docs/`：架构图、持久化格式（AOF/快照）、恢复顺序与一致性、三种结构的选型与复杂度 | 为什么先 snapshot 再 AOF？array/hash/rbtree 的 trade-off |
+| **INFO 命令** | 返回服务端基本信息：版本、运行时长、键数量（三空间分别或合计）、内存占用（可选）、AOF/快照状态 | 可观测性、简单运维 |
+| **优雅退出** | SIGTERM/SIGINT 时先停止接受新请求，执行一次 SAVE（或至少 fsync AOF），再退出 | 生产可用性、数据安全 |
+| **基准数据上 README** | 用现有 `bench_kvstore.py` 跑一轮，把 QPS、延迟（P99）写进 README | 用数据说话，体现性能意识 |
+
+### 中优先级（工程化 + 可信度）
+
+| 扩展项 | 说明 | 面试可讲点 |
+|--------|------|------------|
+| **CI** | GitHub Actions：`make test`、可选 `make all`，PR 时自动跑 | 工程习惯、回归保障 |
+| **恢复正确性测试** | 写数据 → SAVE / 停服务 → 重启 → 校验 GET 结果一致 | 持久化与恢复的可靠性 |
+| **Dockerfile** | 基于 Alpine/Ubuntu 构建并运行 `kvstore_server`，方便他人一键跑 | 交付与部署 |
+| **日志与错误码** | 关键路径打日志（启动、加载 AOF/快照、命令错误），或统一错误码便于排查 | 可运维性 |
+
+### 深度扩展（选做，突出差异化）
+
+| 扩展项 | 说明 | 面试可讲点 |
+|--------|------|------------|
+| **实现 proactor / ntyco** | 按配置切换网络模型，与现有 reactor 对比压测 | IO 多路复用、异步模型 |
+| **TTL / EXPIRE** | 键级过期，惰性删除或定时扫描 + 写入 AOF | 数据结构、持久化如何表达 TTL |
+| **多线程** | 多 reactor 或 IO 线程 + 工作线程池执行命令 | 锁、无锁、线程模型 |
+| **更多命令** | KEYS pattern、MGET/MSET、或某命名空间的 SCAN | 协议与实现复杂度 |
+
+### 可选（锦上添花）
+
+- **clang-format / 代码规范**：统一风格，便于协作与展示。
+- **README 性能小节**：单独一节贴 benchmark 结果与测试环境（CPU、内存、并发数）。
+- **简短「项目亮点」列表**：在 README 开头用 3～5 条概括，方便面试官快速抓重点。
+
+建议顺序：先做「设计文档 + INFO + 优雅退出 + README 基准数据」，再上 CI 与恢复测试，最后按兴趣选做 proactor/ntyco 或 TTL。
