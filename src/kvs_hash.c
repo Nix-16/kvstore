@@ -127,18 +127,28 @@ int kvs_hash_set(kvs_hash_t *inst, char *key, char *value)
     if (idx < 0)
         return -2;
 
-    /* 查重 */
+    /* 若已存在：覆盖 value（对齐数组 set 语义） */
     kvs_hash_node_t *cur = inst->buckets[idx];
     while (cur)
     {
         if (strcmp(cur->key, key) == 0)
         {
-            return 1; /* exist */
+            /* 分配新 value，成功后替换，避免丢旧值 */
+            size_t vlen = strlen(value);
+            char *newv = (char *)kvs_malloc(vlen + 1);
+            if (!newv)
+                return -3;
+            memcpy(newv, value, vlen + 1);
+
+            kvs_free(cur->value);
+            cur->value = newv;
+
+            return 0; /* 覆盖也算 success */
         }
         cur = cur->next;
     }
 
-    /* 创建并头插 */
+    /* 不存在：创建并头插 */
     kvs_hash_node_t *node = kvs_hash_create_node(key, value);
     if (!node)
         return -3;
@@ -210,40 +220,6 @@ int kvs_hash_del(kvs_hash_t *inst, char *key)
     }
 
     return 1; /* no exist */
-}
-
-int kvs_hash_mod(kvs_hash_t *inst, char *key, char *value)
-{
-    if (!inst || !key || !value)
-        return -1;
-    if (!inst->buckets)
-        return -2;
-
-    int idx = kvs_hash_index(inst, key);
-    if (idx < 0)
-        return -2;
-
-    kvs_hash_node_t *cur = inst->buckets[idx];
-    while (cur)
-    {
-        if (strcmp(cur->key, key) == 0)
-            break;
-        cur = cur->next;
-    }
-    if (!cur)
-        return 1; /* no exist */
-
-    /* 先分配新 value，成功后再替换，避免丢旧值 */
-    size_t vlen = strlen(value);
-    char *newv = (char *)kvs_malloc(vlen + 1);
-    if (!newv)
-        return -3;
-    memcpy(newv, value, vlen + 1);
-
-    kvs_free(cur->value);
-    cur->value = newv;
-
-    return 0;
 }
 
 int kvs_hash_exist(kvs_hash_t *inst, char *key)

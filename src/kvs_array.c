@@ -182,38 +182,6 @@ int kvs_array_del(kvs_array_t *inst, char *key)
     return 1; // no exist（固定返回1，避免你原来返回i导致语义不稳）
 }
 
-int kvs_array_mod(kvs_array_t *inst, char *key, char *value)
-{
-    if (inst == NULL || key == NULL || value == NULL)
-        return -1; // 参数错误
-    if (inst->table == NULL)
-        return -2; // 未create/状态错误
-
-    for (int i = 0; i < inst->total; i++)
-    {
-        if (inst->table[i].key == NULL)
-            continue;
-
-        if (strcmp(inst->table[i].key, key) == 0)
-        {
-            // 先分配新value，成功后再替换，避免 malloc 失败导致 value 悬挂(UAF)
-            size_t vlen = strlen(value) + 1;
-            char *newv = kvs_malloc(vlen);
-            if (newv == NULL)
-                return -3;
-            memcpy(newv, value, vlen);
-
-            if (inst->table[i].value)
-                kvs_free(inst->table[i].value);
-
-            inst->table[i].value = newv;
-            return 0;
-        }
-    }
-
-    return 1; // no exist
-}
-
 int kvs_array_exist(kvs_array_t *inst, char *key)
 {
     if (inst == NULL || key == NULL)

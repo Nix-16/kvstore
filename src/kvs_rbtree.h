@@ -52,8 +52,7 @@ int kvs_rbtree_destory(kvs_rbtree_t *inst);
 /*
  * kvs_rbtree_set
  * @return:
- *  0   success (新增成功)
- *  1   exist   (key已存在；不覆盖)
+ *  0   success (新增或覆盖都返回 0)
  * -1   inst/key/value == NULL 参数错误
  * -2   inst->nil == NULL 未create/状态错误
  * -3   内存分配失败（节点或 key/value 拷贝失败）
@@ -78,19 +77,6 @@ char *kvs_rbtree_get(kvs_rbtree_t *inst, char *key);
  */
 int kvs_rbtree_del(kvs_rbtree_t *inst, char *key);
 
-/*
- * kvs_rbtree_mod
- * @return:
- *  0   success
- *  1   no exist
- * -1   inst/key/value == NULL 参数错误
- * -2   inst->nil == NULL 未create/状态错误
- * -3   内存分配失败（新value拷贝失败）
- *
- * 说明：
- * - 先分配新 value，再替换旧 value，避免丢失旧值
- */
-int kvs_rbtree_mod(kvs_rbtree_t *inst, char *key, char *value);
 
 /*
  * kvs_rbtree_exist

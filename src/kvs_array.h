@@ -70,17 +70,6 @@ char *kvs_array_get(kvs_array_t *inst, char *key);
 int kvs_array_del(kvs_array_t *inst, char *key);
 
 /*
- * kvs_array_mod
- * @return:
- *  0   success
- *  1   no exist
- * -1   inst/key/value == NULL 参数错误
- * -2   inst->table == NULL 未create/状态错误
- * -3   内存分配失败（新value分配失败）
- */
-int kvs_array_mod(kvs_array_t *inst, char *key, char *value);
-
-/*
  * kvs_array_exist
  * @return:
  *  0   exist

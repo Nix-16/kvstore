@@ -43,9 +43,9 @@ int kvs_hash_destory(kvs_hash_t *inst);
 
 /*
  * kvs_hash_set
+ * 语义：若 key 不存在则新增；若已存在则覆盖 value（与数组后端对齐）
  * @return:
- *  0   success (新增成功)
- *  1   exist   (key已存在)
+ *  0   success (新增或覆盖都返回 0)
  * -1   inst/key/value == NULL 参数错误
  * -2   inst->buckets == NULL 未create/状态错误
  * -3   内存分配失败（节点/字符串分配失败）
@@ -69,17 +69,6 @@ char *kvs_hash_get(kvs_hash_t *inst, char *key);
  * -2   inst->buckets == NULL 未create/状态错误
  */
 int kvs_hash_del(kvs_hash_t *inst, char *key);
-
-/*
- * kvs_hash_mod
- * @return:
- *  0   success
- *  1   no exist
- * -1   inst/key/value == NULL 参数错误
- * -2   inst->buckets == NULL 未create/状态错误
- * -3   内存分配失败（新value分配失败）
- */
-int kvs_hash_mod(kvs_hash_t *inst, char *key, char *value);
 
 /*
  * kvs_hash_exist

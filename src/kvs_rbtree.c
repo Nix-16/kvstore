@@ -415,6 +415,25 @@ int kvs_rbtree_set(kvs_rbtree_t *inst, char *key, char *value)
     if (!inst->nil)
         return -2;
 
+    /* 1) 若已存在：覆盖 value（对齐 array 的 set 语义） */
+    kvs_rbtree_node_t *exist = rbtree_search(inst, key);
+    if (exist != inst->nil)
+    {
+        /* 分配新 value，成功后替换，避免 malloc 失败丢旧值 */
+        size_t vlen = strlen(value);
+        char *newv = (char *)kvs_malloc(vlen + 1);
+        if (!newv)
+            return -3;
+        memcpy(newv, value, vlen + 1);
+
+        if (exist->value)
+            kvs_free(exist->value);
+        exist->value = newv;
+
+        return 0; /* 覆盖也算 success */
+    }
+
+    /* 2) 不存在：创建新节点并插入 */
     kvs_rbtree_node_t *node = (kvs_rbtree_node_t *)kvs_malloc(sizeof(kvs_rbtree_node_t));
     if (!node)
         return -3;
@@ -445,12 +464,12 @@ int kvs_rbtree_set(kvs_rbtree_t *inst, char *key, char *value)
     }
     memcpy(node->value, value, vlen + 1);
 
+    /* 插入：理论上不会 exist（我们已提前 search），但保守处理 */
     int rc = rbtree_insert(inst, node);
-    if (rc == 1)
+    if (rc != 0)
     {
-        /* exist：释放刚创建的 node，避免泄漏 */
         rbtree_free_node(node);
-        return 1;
+        return -3;
     }
 
     inst->count++;
@@ -484,30 +503,6 @@ int kvs_rbtree_del(kvs_rbtree_t *inst, char *key)
     kvs_rbtree_node_t *removed = rbtree_delete(inst, node);
     rbtree_free_node(removed);
     inst->count--;
-
-    return 0;
-}
-
-int kvs_rbtree_mod(kvs_rbtree_t *inst, char *key, char *value)
-{
-    if (!inst || !key || !value)
-        return -1;
-    if (!inst->nil)
-        return -2;
-
-    kvs_rbtree_node_t *node = rbtree_search(inst, key);
-    if (node == inst->nil)
-        return 1;
-
-    /* 先分配新 value，再替换旧 value */
-    size_t vlen = strlen(value);
-    char *newv = (char *)kvs_malloc(vlen + 1);
-    if (!newv)
-        return -3;
-    memcpy(newv, value, vlen + 1);
-
-    kvs_free(node->value);
-    node->value = newv;
 
     return 0;
 }
