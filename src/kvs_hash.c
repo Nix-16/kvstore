@@ -29,6 +29,8 @@ static int kvs_hash_index(const kvs_hash_t *inst, const char *key)
 
 static kvs_hash_node_t *kvs_hash_create_node(const char *key, const char *value)
 {
+    if (!key || !value) return NULL;
+
     kvs_hash_node_t *node = (kvs_hash_node_t *)kvs_malloc(sizeof(kvs_hash_node_t));
     if (!node)
         return NULL;
