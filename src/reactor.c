@@ -420,7 +420,7 @@ struct reactor *reactor_create(int max_events)
         return NULL;
     }
 
-    r->evlist = (struct epoll_event *)calloc((size_t)max_events, sizeof(struct epoll_event));
+    r->evlist = (struct epoll_event *)kvs_calloc((size_t)max_events, sizeof(struct epoll_event));
     if (!r->evlist)
     {
         close(r->epfd);
@@ -458,7 +458,7 @@ void reactor_destroy(struct reactor *r)
                 connection_close(r, r->conns[fd]);
             }
         }
-        free(r->conns);
+        kvs_free(r->conns);
     }
 
     /* 关闭 listenfd */
@@ -469,9 +469,9 @@ void reactor_destroy(struct reactor *r)
         r->listen_fd = -1;
     }
 
-    free(r->evlist);
+    kvs_free(r->evlist);
     close(r->epfd);
-    free(r);
+    kvs_free(r);
 }
 
 void reactor_set_callbacks(struct reactor *r, on_message_cb on_msg, on_close_cb on_close, void *user_data)

@@ -49,7 +49,7 @@ static int buffer_expand(struct buffer *buf, size_t new_capacity)
     if (new_capacity > (size_t)BUFFER_MAX_CAPACITY)
         return -1;
 
-    char *new_data = (char *)realloc(buf->data, new_capacity);
+    char *new_data = (char *)kvs_realloc(buf->data, new_capacity);
     if (!new_data)
         return -1;
 
@@ -68,7 +68,7 @@ int buffer_init(struct buffer *buf, size_t initial_size)
     if (initial_size > (size_t)BUFFER_MAX_CAPACITY)
         return -1;
 
-    buf->data = (char *)malloc(initial_size);
+    buf->data = (char *)kvs_malloc(initial_size);
     if (!buf->data)
     {
         /* 保持一个可识别的“未初始化状态” */
@@ -89,7 +89,7 @@ void buffer_free(struct buffer *buf)
     if (!buf)
         return;
 
-    free(buf->data);
+    kvs_free(buf->data);
     buf->data = NULL;
     buf->read_index = 0;
     buf->write_index = 0;

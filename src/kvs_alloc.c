@@ -3,13 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* 默认 system */
+/* system */
 static void *(*g_malloc_fn)(size_t) = malloc;
 static void  (*g_free_fn)(void *) = free;
 static void *(*g_calloc_fn)(size_t, size_t) = calloc;
 static void *(*g_realloc_fn)(void *, size_t) = realloc;
 
-/* 若你将来引入 jemalloc，打开这些 include 和 wrap */
+/* jemalloc */
 #include <jemalloc/jemalloc.h>
 static void *je_malloc_wrap(size_t n) { return je_malloc(n); }
 static void  je_free_wrap(void *p) { je_free(p); }
@@ -39,7 +39,7 @@ void kvs_set_allocator(kvs_alloc_type_t type)
         g_free_fn = je_free_wrap;
         g_calloc_fn = je_calloc_wrap;
         g_realloc_fn = je_realloc_wrap;
-        printf("Using jemalloc malloc/free (TODO wired)\n");
+        printf("Using jemalloc malloc/free\n");
         break;
 
     case KVS_ALLOC_MYPOOL:

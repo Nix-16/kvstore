@@ -13,6 +13,7 @@
 #include "src/resp_reply.h"
 #include "src/reactor.h"
 #include "src/buffer.h"
+#include "src/kvs_config.h"
 
 /* 你在 kvs_array.c 里定义的全局实例 */
 extern kvs_array_t  global_array;
@@ -294,10 +295,21 @@ static void on_close(struct connection *c, void *user_data)
     /* 这里可选打印日志 */
 }
 
-int main(int argc, char **argv)
+int main()
 {
-    /* 默认 6380，避免占用 6379（你 echo_server/系统 redis 可能会用） */
-    uint16_t port = (argc >= 2) ? (uint16_t)atoi(argv[1]) : 6380;
+    // /* 默认 6380，避免占用 6379（你 echo_server/系统 redis 可能会用） */
+    // uint16_t port = (argc >= 2) ? (uint16_t)atoi(argv[1]) : 6380;
+
+    kvs_config_t cfg;
+    if (kvs_config_load_file(&cfg, "kvs.conf") != 0)
+    {
+        fprintf(stderr, "load config failed\n");
+        return 1;
+    }
+
+   uint16_t port = (uint16_t)cfg.port;
+    
+    kvs_set_allocator(cfg.allocator);
 
     if (kvs_init() != 0) {
         fprintf(stderr, "kvs_init failed\n");
@@ -314,7 +326,7 @@ int main(int argc, char **argv)
     /* 把 reactor 指针作为 user_data 传给回调（kvs_on_message 里要用 connection_send） */
     reactor_set_callbacks(g_r, kvs_on_message, on_close, g_r);
 
-    if (reactor_listen(g_r, "0.0.0.0", port, 128) != 0) {
+    if (reactor_listen(g_r, cfg.bind_ip, port, 128) != 0) {
         fprintf(stderr, "reactor_listen failed on port %u\n", port);
         reactor_destroy(g_r);
         g_r = NULL;
@@ -325,7 +337,7 @@ int main(int argc, char **argv)
     signal(SIGINT, on_sig);
     signal(SIGTERM, on_sig);
 
-    printf("kvstore_server listening on 0.0.0.0:%u\n", port);
+    printf("kvstore_server listening on %s:%u\n", cfg.bind_ip, port);
     fflush(stdout);
 
     reactor_run(g_r);

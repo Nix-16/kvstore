@@ -85,7 +85,7 @@ $(KVS_BIN): $(BIN_DIR) $(LIB_A) $(KVS_OBJ)
 	$(CC) $(CFLAGS) $(KVS_OBJ) $(LIB_A) -o $@ $(LDFLAGS)
 
 run-kvs: $(KVS_BIN)
-	./$(KVS_BIN) 6380
+	./$(KVS_BIN)
 
 # ---------------- unit tests ----------------
 $(BIN_DIR)/test_%: $(LIB_A) $(BUILD_DIR)/test/unit/test_%.o | $(BIN_DIR)
